@@ -1,43 +1,78 @@
-# Kubernetes The Hard Way
+# Kubernetes The Hard Way (3 VMs on a Raspberry Pi 5)
 
-This tutorial walks you through setting up Kubernetes the hard way. This guide is not for someone looking for a fully automated tool to bring up a Kubernetes cluster. Kubernetes The Hard Way is optimized for learning, which means taking the long route to ensure you understand each task required to bootstrap a Kubernetes cluster.
+`kthw.sh` is a collection of [`bash`](https://www.man7.org/linux/man-pages/man1/bash.1.html) functions for setting up a basic [Kubernetes](https://kubernetes.io) cluster with 3 nodes for personal experimentation and learning on a [Raspberry Pi 5](https://www.raspberrypi.org/products/raspberry-pi-5/).
 
-> The results of this tutorial should not be viewed as production ready, and may receive limited support from the community, but don't let that stop you from learning!
+The three nodes are `server`, `node-0`, and `node-1`.
+- `server` runs [`etcd`](https://etcd.io), [`kube-apiserver`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/), [`kube-controller-manager`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/), [`kube-scheduler`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-scheduler/). It is also configured to run [`kubectl`](https://kubernetes.io/docs/reference/kubectl/kubectl/).
+- `node-0` and `node-1` run [`kubelet`](https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/), [`kube-proxy`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/), [`containerd`](https://containerd.io/), and [`runc`](https://github.com/opencontainers/runc)
 
-## Copyright
+## License
 
-<a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a>.
+This repository reuses files from the original [Kubernetes the Hard Way](https://github.com/kelseyhightower/kubernetes-the-hard-way) by Kelsey Hightower. It follows the license of the original Kubernetes the Hard Way: [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 
+## Prerequisites
+- **Raspberry Pi 5**
+  - 8GB RAM
+  - Ethernet connection
+  - SSH public key auth and `sudo` without password for user `pi`
 
-## Target Audience
+- **Functioning DNS** that resolves the names `server`, `node-0`, and `node-1`.
 
-The target audience for this tutorial is someone who wants to understand the fundamentals of Kubernetes and how the core components fit together.
+- **Local Linux system (or local macOS system** with [Homebrew](https://brew.sh)) and:
+  - [`openssl`](https://www.openssl.org/), [`parallel`](https://www.gnu.org/software/parallel/), [`jq`](https://stedolan.github.io/jq/), [`yq`](https://mikefarah.gitbook.io/yq/), [`virt-install`](https://github.com/virt-manager/virt-manager/blob/main/man/virt-install.rst) installed
+  - SSH agent (e.g. [Secretive on macOS](https://github.com/maxgoedjen/secretive)) with CA key (`ca.pub`)
+  - On macOS, if `bash` is not the default shell, run `bash -l` in any Terminal window as needed.  Or refer to this Apple support article on [default shells](https://support.apple.com/en-us/102360) for more information and instructions.
 
-## Cluster Details
+- Create a **configuration file**, `config.sh` to specify:
+  - the hostname or IP of the Raspberry Pi system
+  - the URL of the [Debian Cloud image](https://cloud.debian.org/images/cloud/)
+  - pod CIDRs
 
-Kubernetes The Hard Way guides you through bootstrapping a basic Kubernetes cluster with all control plane components running on a single node, and two worker nodes, which is enough to learn the core concepts.
+  ```bash
+  $ cat config.sh
+  PI_HOST=5a
+  DEBIAN_IMAGE="https://cloud.debian.org/images/cloud/bookworm/20240717-1811/debian-12-genericcloud-arm64-20240717-1811.qcow2"
+  POD_CIDR0=10.200.0.0/24
+  POD_CIDR1=10.200.1.0/24
+  ```
 
-Component versions:
+## Instructions
 
-* [kubernetes](https://github.com/kubernetes/kubernetes) v1.28.x
-* [containerd](https://github.com/containerd/containerd) v1.7.x
-* [cni](https://github.com/containernetworking/cni) v1.3.x
-* [etcd](https://github.com/etcd-io/etcd) v3.4.x
+The commands in this section will run on the local Linux or macOS system to set up the VMs and create and configure the cluster over ssh.
 
-## Labs
+Source the `bash` script `kthw.sh`. This allows calling its functions directly and incrementally.
 
-This tutorial requires four (4) ARM64 based virtual or physical machines connected to the same network. While ARM64 based machines are used for the tutorial, the lessons learned can be applied to other platforms.
+```bash
+source kthw.sh
+```
 
-* [Prerequisites](docs/01-prerequisites.md)
-* [Setting up the Jumpbox](docs/02-jumpbox.md)
-* [Provisioning Compute Resources](docs/03-compute-resources.md)
-* [Provisioning the CA and Generating TLS Certificates](docs/04-certificate-authority.md)
-* [Generating Kubernetes Configuration Files for Authentication](docs/05-kubernetes-configuration-files.md)
-* [Generating the Data Encryption Config and Key](docs/06-data-encryption-keys.md)
-* [Bootstrapping the etcd Cluster](docs/07-bootstrapping-etcd.md)
-* [Bootstrapping the Kubernetes Control Plane](docs/08-bootstrapping-kubernetes-controllers.md)
-* [Bootstrapping the Kubernetes Worker Nodes](docs/09-bootstrapping-kubernetes-workers.md)
-* [Configuring kubectl for Remote Access](docs/10-configuring-kubectl.md)
-* [Provisioning Pod Network Routes](docs/11-pod-network-routes.md)
-* [Smoke Test](docs/12-smoke-test.md)
-* [Cleaning Up](docs/13-cleanup.md)
+Each function in `kthw.sh` marked with a numbered comment (e.g. `# 5. install etcd on 'server'`) represents a specific step in the setup process. These functions are intended to be executed one at a time to progressively build up the Kubernetes cluster. This makes it easy to understand and troubleshoot each phase of the setup.
+
+```bash
+# 1. local environment setup
+kthw-setup
+
+# 2. Raspberry Pi OS setup (install packages and set up libvirt)
+kthw-rpi-setup
+
+# 3. download packages listed in downloads.txt
+kthw-dl
+
+# 4. launch Debian VMs (server, node-0, node-1)
+kthw-launch-all
+
+# 5. install etcd on 'server'
+kthw-etcd
+
+# 6. create cluster CA
+kthw-ca
+
+# 7. create cluster certificates
+kthw-certs
+
+# 8. install kube-apiserver, kube-controller-manager, kube-scheduler, kubectl on 'server'
+kthw-server
+
+# 9. install kublet, kubeproxy, containerd, runc, CNI plugins and pod routes on worker nodes (node-0, node-1)
+kthw-nodes
+```

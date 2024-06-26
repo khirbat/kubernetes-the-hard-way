@@ -1,51 +1,89 @@
-admin-csr.json             
-admin-key.pem              
-admin.csr                  
-admin.pem                  
-admin.kubeconfig
-ca-config.json             
-ca-csr.json                
-ca-key.pem                 
-ca.csr                     
-ca.pem                     
-encryption-config.yaml     
-kube-controller-manager-csr.json
-kube-controller-manager-key.pem
-kube-controller-manager.csr
-kube-controller-manager.kubeconfig
-kube-controller-manager.pem
-kube-scheduler-csr.json
-kube-scheduler-key.pem
-kube-scheduler.csr
-kube-scheduler.kubeconfig
-kube-scheduler.pem
-kube-proxy-csr.json        
-kube-proxy-key.pem         
-kube-proxy.csr             
-kube-proxy.kubeconfig      
-kube-proxy.pem             
-kubernetes-csr.json        
-kubernetes-key.pem         
-kubernetes.csr             
-kubernetes.pem             
-worker-0-csr.json          
-worker-0-key.pem
-worker-0.csr
-worker-0.kubeconfig
-worker-0.pem
-worker-1-csr.json
-worker-1-key.pem
-worker-1.csr
-worker-1.kubeconfig
-worker-1.pem
-worker-2-csr.json
-worker-2-key.pem
-worker-2.csr
-worker-2.kubeconfig
-worker-2.pem
-service-account-key.pem
-service-account.csr
-service-account.pem
-service-account-csr.json
-*.swp
-.idea/
+downloads/
+node-0/
+node-1/
+server/
+
+*.crl
+*.crt
+*.csr
+*.key
+*.kubeconfig
+*.kubectl
+ca.srl
+kubectl
+machines.txt
+
+# Created by https://www.toptal.com/developers/gitignore/api/emacs,visualstudiocode
+# Edit at https://www.toptal.com/developers/gitignore?templates=emacs,visualstudiocode
+
+### Emacs ###
+# -*- mode: gitignore; -*-
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Org-mode
+.org-id-locations
+*_archive
+
+# flymake-mode
+*_flymake.*
+
+# eshell files
+/eshell/history
+/eshell/lastdir
+
+# elpa packages
+/elpa/
+
+# reftex files
+*.rel
+
+# AUCTeX auto folder
+/auto/
+
+# cask packages
+.cask/
+dist/
+
+# Flycheck
+flycheck_*.el
+
+# server auth directory
+/server/
+
+# projectiles files
+.projectile
+
+# directory configuration
+.dir-locals.el
+
+# network security
+/network-security.data
+
+
+### VisualStudioCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+.history
+.ionide
+
+# End of https://www.toptal.com/developers/gitignore/api/emacs,visualstudiocode

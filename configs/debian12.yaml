@@ -1,0 +1,34 @@
+#cloud-config
+
+preserve_hostname: true
+
+package_update: true
+packages:
+  - bind9-dnsutils
+  - command-not-found
+  - conntrack
+  - ipset
+  - jq
+  - lsof
+  - mg
+  - parallel
+  - qemu-guest-agent
+  - rsync
+  - silversearcher-ag
+  - strace
+  - tmux
+  - xterm
+
+bootcmd:
+- cloud-init-per once ssh-ca echo "TrustedUserCAKeys /etc/ssh/trusted-user-ca-keys.pub" >> /etc/ssh/sshd_config.d/50-trusted-user-ca-keys.conf
+
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+
+write_files:
+  - path: /etc/skel/.hushlogin
+    owner: root:root
+
+  - path: /etc/ssh/trusted-user-ca-keys.pub
+    content: |
+      ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMGc1xDbt6LoT7DcA4+Jxeav1HrZ+GguSqatb3OyQHlJ5zYFTtVlTBZ4fKgo0qYTxns0zDv0bGE2BY+faqcaMmM= beskar@secretive.beskar.local

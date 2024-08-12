@@ -116,6 +116,7 @@ function kubectl-completion () {
     which kubectl > /dev/null || return
 
     source <(kubectl completion bash)
+    unset -f kubectl-completion
 }
 
 kubectl-completion

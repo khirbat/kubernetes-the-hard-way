@@ -28,7 +28,3 @@ runcmd:
 write_files:
   - path: /etc/skel/.hushlogin
     owner: root:root
-
-  - path: /etc/ssh/trusted-user-ca-keys.pub
-    content: |
-      ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMGc1xDbt6LoT7DcA4+Jxeav1HrZ+GguSqatb3OyQHlJ5zYFTtVlTBZ4fKgo0qYTxns0zDv0bGE2BY+faqcaMmM= beskar@secretive.beskar.local

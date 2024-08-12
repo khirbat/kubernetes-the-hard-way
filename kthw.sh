@@ -26,7 +26,7 @@ function kthw-darwin-setup () {
     # install missing packages
     brew list "${packages[@]}" >/dev/null 2>/dev/null || brew install "${packages[@]}"
 
-    LIBVIRT_DEFAULT_URI=qemu+ssh://pi@${PI_HOST}/system
+    LIBVIRT_DEFAULT_URI=qemu+ssh://pi@${KTHW_PI_HOST}/system
     PATH="$(brew --prefix coreutils)/libexec/gnubin":$PATH  # for install -D
     SSH_AUTH_SOCK="$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh"
 
@@ -34,7 +34,7 @@ function kthw-darwin-setup () {
 }
 
 function kthw-linux-setup () {
-    LIBVIRT_DEFAULT_URI=qemu+ssh://pi@${PI_HOST}/system
+    LIBVIRT_DEFAULT_URI=qemu+ssh://pi@${KTHW_PI_HOST}/system
 
     export LIBVIRT_DEFAULT_URI
 }
@@ -72,7 +72,7 @@ export -f kthw-rpi-remote-setup
 # 2. Raspberry Pi OS setup (install packages, set up libvirt, download Debian image)
 function kthw-rpi-setup () {
     # https://www.gnu.org/software/parallel/parallel_tutorial.html#transferring-environment-variables-and-functions
-    parallel -j1 --env kthw-rpi-remote-setup -S "$PI_HOST" kthw-rpi-remote-setup ::: "$DEBIAN_IMAGE"
+    parallel -j1 --env kthw-rpi-remote-setup -S "$KTHW_PI_HOST" kthw-rpi-remote-setup ::: "$KTHW_DEBIAN_IMAGE"
 }
 
 #
@@ -116,37 +116,39 @@ function kthw-ssh-cleanup () {
     rmdir "$dir"
 }
 
-## emit cloud-init YAML for SSH host key and certificate
-## see ssh-keys, https://cloudinit.readthedocs.io/en/latest/reference/modules.html#ssh
-function kthw-ssh () (  # hostname
+# augment cloud-config in configs/debian12.yaml
+function kthw-cloud-config () (  # hostname
     set -Eeuo pipefail
 
     hostname=$1
-    #local dir
     dir="$(mktemp -d -t "${hostname}-XXXXXXXXXX")"
     trap 'kthw-ssh-cleanup "$dir"' EXIT
 
-    # Generate SSH host key pair and sign with CA key hosted in ssh agent.  The CA key
-    # is identified by the public key in ca.pub.
-    # ~/.ssh/know_hosts must have a line for the CA public key in the following format:
-    # @cert-authority * <content of ca.pub>
-    ssh-keygen -m RFC4716 -t ed25519 -f "$dir/ssh_host_ed25519_key" -N '' -C "root@$hostname" <<< y >/dev/null
-    ssh-keygen -Us ca.pub -I "${hostname}_ed25519" -n "$hostname" -V -1d:+365d -h "$dir/ssh_host_ed25519_key.pub"
+    # shellcheck disable=SC2034
+    host_cert="$dir/ssh_host_ed25519_key-cert.pub"
+    host_key="$dir/ssh_host_ed25519_key"
 
-    # indented private key and single-line certificate
-    printf '
-ssh_keys:
-    ed25519_private: |
-%s
-    ed25519_certificate: %s
-' "$(sed 's/^/        /' "$dir"/ssh_host_ed25519_key)" "$(< "$dir"/ssh_host_ed25519_key-cert.pub)"
+    # Generate SSH host key pair and sign with CA key hosted in ssh agent.  The CA key
+    # is identified by the CA public key, $KTHW_SSH_CA_KEY
+    # ~/.ssh/know_hosts must have a line for the CA public key in the following format:
+    # @cert-authority * <content of CA public key>
+    ssh-keygen -m RFC4716 -t ed25519 -f "$host_key" -N '' -C "root@$hostname" <<< y >/dev/null
+    ssh-keygen -Us "${KTHW_SSH_CA_KEY}" -I "${hostname}_ed25519" -n "$hostname" -V -1d:+365d -h "$dir/ssh_host_ed25519_key.pub"
+
+    # add these to cloud-config
+    # 1. trusted user CA key
+    # 2. host key and certificate (see ssh-keys, https://cloudinit.readthedocs.io/en/latest/reference/modules.html#ssh)
+    yq '
+        .write_files += {"path" : "/etc/ssh/trusted-user-ca-keys.pub", "content" : load_str(strenv(KTHW_SSH_CA_KEY))} |
+        .ssh_keys.ed25519_private = load_str(strenv(host_key)) |
+        .ssh_keys.ed25519_certificate = load_str(strenv(host_cert))
+    ' configs/debian12.yaml
 )
 
 ## launch a Debian VM
 function kthw-launch () (  # hostname [extra-args]
     set -Eeuox pipefail
     test "$LIBVIRT_DEFAULT_URI"
-    test -f configs/debian12.yaml
 
     hostname=$1
 
@@ -161,7 +163,7 @@ function kthw-launch () (  # hostname [extra-args]
         --boot firmware.feature0.enabled=no,firmware.feature0.name=secure-boot \
         --controller type=scsi,model=virtio-scsi \
         --osinfo debian12 \
-        --disk size=20,backing_store=/var/lib/libvirt/images/"$(basename "$DEBIAN_IMAGE")" \
+        --disk size=20,backing_store=/var/lib/libvirt/images/"$(basename "$KTHW_DEBIAN_IMAGE")" \
         --network type=direct,source=eth0,source_mode=bridge,trustGuestRxFilters=yes \
         --cloud-init user-data="debian12-$hostname.yaml" \
         "${@:2}"
@@ -417,10 +419,10 @@ function kthw-routes () (  # pod-cidr-0 pod-cidr-1
 #
 # 9. install kublet, kubeproxy, containerd, runc, CNI plugins and pod routes on worker nodes (node-0, node-1)
 function kthw-nodes () {
-    kthw-node node-0 "$POD_CIDR0"
-    kthw-node node-1 "$POD_CIDR1"
+    kthw-node node-0 "$KTHW_POD_CIDR0"
+    kthw-node node-1 "$KTHW_POD_CIDR1"
 
-    kthw-routes "$POD_CIDR0" "$POD_CIDR1"
+    kthw-routes "$KTHW_POD_CIDR0" "$KTHW_POD_CIDR1"
 }
 
 #

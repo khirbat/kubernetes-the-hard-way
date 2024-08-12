@@ -2,6 +2,7 @@ downloads/
 node-0/
 node-1/
 server/
+debian/
 
 *.crl
 *.crt

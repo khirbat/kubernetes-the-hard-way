@@ -20,25 +20,27 @@ This repository reuses files from the original [Kubernetes the Hard Way](https:/
 
 - **Local Linux system (or local macOS system** with [Homebrew](https://brew.sh)) and:
   - [`openssl`](https://www.openssl.org/), [`parallel`](https://www.gnu.org/software/parallel/), [`jq`](https://stedolan.github.io/jq/), [`yq`](https://mikefarah.gitbook.io/yq/), [`virt-install`](https://github.com/virt-manager/virt-manager/blob/main/man/virt-install.rst) installed
-  - SSH agent (e.g. [Secretive on macOS](https://github.com/maxgoedjen/secretive)) with CA key (`ca.pub`)
+  - SSH agent (e.g. [Secretive on macOS](https://github.com/maxgoedjen/secretive)) with CA key
   - On macOS, if `bash` is not the default shell, run `bash -l` in any Terminal window as needed.  Or refer to this Apple support article on [default shells](https://support.apple.com/en-us/102360) for more information and instructions.
 
 - Create a **configuration file**, `config.sh` to specify:
-  - the hostname or IP of the Raspberry Pi system
-  - the URL of the [Debian Cloud image](https://cloud.debian.org/images/cloud/)
-  - pod CIDRs
+  - `KTHW_PI_HOST` hostname or IP of the Raspberry Pi system
+  - `KTHW_SSH_CA_KEY` public key of SSH CA signing key held in SSH agent
+  - `KTHW_DEBIAN_IMAGE` URL of [Debian Cloud image](https://cloud.debian.org/images/cloud/)
+  - `POD_CIDRn` pod CIDRs
 
   ```bash
   $ cat config.sh
-  PI_HOST=5a
-  DEBIAN_IMAGE="https://cloud.debian.org/images/cloud/bookworm/20240717-1811/debian-12-genericcloud-arm64-20240717-1811.qcow2"
-  POD_CIDR0=10.200.0.0/24
-  POD_CIDR1=10.200.1.0/24
+  KTHW_PI_HOST=5a
+  KTHW_SSH_CA_KEY=$HOME/.ssh/ca.pub
+  KTHW_DEBIAN_IMAGE="https://cloud.debian.org/images/cloud/bookworm/20240717-1811/debian-12-genericcloud-arm64-20240717-1811.qcow2"
+  KTHW_POD_CIDR0=10.200.0.0/24
+  KTHW_POD_CIDR1=10.200.1.0/24
   ```
 
 ## Instructions
 
-The commands in this section will run on the local Linux or macOS system to set up the VMs and create and configure the cluster over ssh.
+The commands in this section will run on the local Linux or macOS system to set up the VMs and create and configure the cluster over `ssh`.
 
 Source the `bash` script `kthw.sh`. This allows calling its functions directly and incrementally.
 

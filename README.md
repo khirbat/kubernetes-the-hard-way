@@ -1,8 +1,8 @@
 # Kubernetes The Hard Way (3 VMs on a Raspberry Pi 5)
 
-`kthw.sh` is a collection of [`bash`](https://www.man7.org/linux/man-pages/man1/bash.1.html) functions for setting up a basic [Kubernetes](https://kubernetes.io) cluster with 3 nodes for personal experimentation and learning on a [Raspberry Pi 5](https://www.raspberrypi.org/products/raspberry-pi-5/).
+`kthw.sh` is a collection of [`bash`](https://www.man7.org/linux/man-pages/man1/bash.1.html) functions for setting up a basic [Kubernetes](https://kubernetes.io), specifically for personal experimentation and learning on a [Raspberry Pi 5](https://www.raspberrypi.org/products/raspberry-pi-5/).
 
-The three nodes are `server`, `node-0`, and `node-1`.
+The cluster consists of three nodes: `server`, `node-0`, and `node-1`.
 - `server` runs [`etcd`](https://etcd.io), [`kube-apiserver`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/), [`kube-controller-manager`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/), [`kube-scheduler`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-scheduler/). It is also configured to run [`kubectl`](https://kubernetes.io/docs/reference/kubectl/kubectl/).
 - `node-0` and `node-1` run [`kubelet`](https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/), [`kube-proxy`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/), [`containerd`](https://containerd.io/), and [`runc`](https://github.com/opencontainers/runc)
 
@@ -21,9 +21,9 @@ This repository reuses files from the original [Kubernetes the Hard Way](https:/
 - **Local Linux system (or local macOS system** with [Homebrew](https://brew.sh)) and:
   - [`openssl`](https://www.openssl.org/), [`parallel`](https://www.gnu.org/software/parallel/), [`jq`](https://stedolan.github.io/jq/), [`yq`](https://mikefarah.gitbook.io/yq/), [`virt-install`](https://github.com/virt-manager/virt-manager/blob/main/man/virt-install.rst) installed
   - SSH agent (e.g. [Secretive on macOS](https://github.com/maxgoedjen/secretive)) with CA key
-  - On macOS, if `bash` is not the default shell, run `bash -l` in any Terminal window as needed.  Or refer to this Apple support article on [default shells](https://support.apple.com/en-us/102360) for more information and instructions.
+  - On macOS, if `bash` is not the default shell, run `bash -l` in any Terminal window as needed.  Or refer to this Apple support article on [default shells](https://support.apple.com/en-us/102360) for more information on changing the default shell.
 
-- Create a **configuration file**, `config.sh` to specify:
+- Create a **configuration file** `config.sh` with the following variables:
   - `KTHW_PI_HOST` hostname or IP of the Raspberry Pi system
   - `KTHW_SSH_CA_KEY` public key of SSH CA signing key held in SSH agent
   - `KTHW_DEBIAN_IMAGE` URL of [Debian Cloud image](https://cloud.debian.org/images/cloud/)
@@ -39,6 +39,8 @@ This repository reuses files from the original [Kubernetes the Hard Way](https:/
   ```
 
 ## Instructions
+
+#### Cluster Setup
 
 The commands in this section will run on the local Linux or macOS system to set up the VMs and create and configure the cluster over `ssh`.
 
@@ -66,15 +68,32 @@ kthw-launch-all
 # 5. install etcd on 'server'
 kthw-etcd
 
-# 6. create cluster CA
-kthw-ca
-
-# 7. create cluster certificates
+# 6. create cluster CA and certificates
 kthw-certs
 
-# 8. install kube-apiserver, kube-controller-manager, kube-scheduler, kubectl on 'server'
+# 7. install kube-apiserver, kube-controller-manager, kube-scheduler, kubectl on 'server'
 kthw-server
 
-# 9. install kublet, kubeproxy, containerd, runc, CNI plugins and pod routes on worker nodes (node-0, node-1)
+# 8. install kublet, kubeproxy, containerd, runc, CNI plugins and pod routes on worker nodes (node-0, node-1)
 kthw-nodes
+```
+
+#### Smoke Test
+
+Copy `smoke.sh` to `server` and source it.  `smoke.sh` contains a set of experiments packaged as `bash` functions.
+
+```bash
+scp smoke.sh debian@server:
+source smoke.sh
+```
+
+TODO
+
+#### Cleanup
+
+To destroy the three Debian VMs that make up the cluster
+
+```bash
+source kthw.sh
+kthw-terminate-all
 ```

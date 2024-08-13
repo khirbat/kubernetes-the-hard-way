@@ -213,8 +213,7 @@ function kthw-etcd () (
     ssh debian@server etcdctl member list
 )
 
-#
-# 6. create cluster CA
+# create cluster CA
 function kthw-ca () {
     test -f ca.conf || return
 
@@ -231,9 +230,11 @@ function kthw-ca-ed25519 () {
 }
 
 #
-# 7. create cluster certificates
+# 6. create cluster CA and certificates
 function kthw-certs () (
     test -f ca.conf || return
+
+    kthw-ca
 
     certs=(
         "admin" "node-0" "node-1"
@@ -304,7 +305,7 @@ function kthw-server-kubeconfigs () (
 )
 
 #
-# 8. install kube-apiserver, kube-controller-manager, kube-scheduler, kubectl on 'server'
+# 7. install kube-apiserver, kube-controller-manager, kube-scheduler, kubectl on 'server'
 function kthw-server () {
     install -D -m 0755 -t server/usr/local/bin \
         downloads/kube{-apiserver,-controller-manager,-scheduler,ctl}
@@ -407,7 +408,7 @@ function kthw-node-ip () (  # hostname
     host=$1
     ip=$(dig -4 +short "$host")
 
-    # fall back for DNS
+    # fallback for DNS
     if [[ -z "$ip" ]]; then
         ip=$(virsh domifaddr "$host" --source agent | \
             awk '/52:54/ {gsub("/[[:digit:]]+", "", $4); print $4}')
@@ -441,13 +442,10 @@ function kthw-routes () (  # pod-cidr-0 pod-cidr-1
 )
 
 #
-# 9. install kublet, kubeproxy, containerd, runc, CNI plugins and pod routes on worker nodes (node-0, node-1)
+# 8. install kublet, kubeproxy, containerd, runc, CNI plugins and pod routes on worker nodes (node-0, node-1)
 function kthw-nodes () {
     kthw-node node-0 "$KTHW_POD_CIDR0"
     kthw-node node-1 "$KTHW_POD_CIDR1"
 
     kthw-routes "$KTHW_POD_CIDR0" "$KTHW_POD_CIDR1"
 }
-
-#
-# smoke test TODO

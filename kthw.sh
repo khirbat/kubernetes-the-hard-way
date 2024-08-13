@@ -125,8 +125,9 @@ function kthw-cloud-config () (  # hostname
     trap 'kthw-ssh-cleanup "$dir"' EXIT
 
     # shellcheck disable=SC2034
-    host_cert="$dir/ssh_host_ed25519_key-cert.pub"
-    host_key="$dir/ssh_host_ed25519_key"
+    export host_cert="$dir/ssh_host_ed25519_key-cert.pub"
+    export host_key="$dir/ssh_host_ed25519_key"
+    export KTHW_SSH_CA_KEY
 
     # Generate SSH host key pair and sign with CA key hosted in ssh agent.  The CA key
     # is identified by the CA public key, $KTHW_SSH_CA_KEY
@@ -152,7 +153,7 @@ function kthw-launch () (  # hostname [extra-args]
 
     hostname=$1
 
-    { cat configs/debian12.yaml; kthw-ssh "$hostname";} > "debian12-$hostname.yaml"
+    kthw-cloud-config "$hostname" > "debian12-$hostname.yaml"
 
     virt-install \
         --name "$hostname" \
@@ -345,7 +346,7 @@ function kthw-server () {
 }
 
 function kthw-node () (  # hostname pod-cidr
-    set -Eeuo pipefail
+    set -Eeuox pipefail
     host=$1
     subnet=$2
 
@@ -398,14 +399,37 @@ function kthw-node () (  # hostname pod-cidr
     ssh debian@"${host}" sudo systemctl enable --now kubelet kube-proxy containerd
 )
 
+
+# resolve hostname to IP address
+function kthw-node-ip () (  # hostname
+    set -Eeuo pipefail
+
+    host=$1
+    ip=$(dig -4 +short "$host")
+
+    # fall back for DNS
+    if [[ -z "$ip" ]]; then
+        ip=$(virsh domifaddr "$host" --source agent | \
+            awk '/52:54/ {gsub("/[[:digit:]]+", "", $4); print $4}')
+    fi
+
+    echo "$ip"
+)
+
 ## set up pod routes
 ## FIXME: make this work for more than two pod CIDRs
 function kthw-routes () (  # pod-cidr-0 pod-cidr-1
     set -Eeuo pipefail
 
-    node0_ip=$(dig -4 +short node-0)
-    node1_ip=$(dig -4 +short node-1)
+    node0_ip=$(kthw-node-ip node-0)
+    node1_ip=$(kthw-node-ip node-1)
 
+    if [[ -z "$node0_ip" || -z "$node1_ip" ]]; then
+        echo "Error: Failed to retrieve node IPs."
+        exit 1
+    fi
+
+    set -Eeuox pipefail
     # shellcheck disable=SC2029
     {
         ssh debian@server sudo ip route add "$2" via "$node1_ip"

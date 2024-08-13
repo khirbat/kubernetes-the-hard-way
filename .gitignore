@@ -10,6 +10,7 @@ debian/
 *.key
 *.kubeconfig
 *.kubectl
+*.yaml
 ca.srl
 kubectl
 machines.txt

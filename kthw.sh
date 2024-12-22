@@ -81,8 +81,7 @@ function kthw-dl () (
     set -Eeuo pipefail
     test -f "downloads.txt"
 
-    mkdir -p downloads
-    xargs -P8 -n1 curl --output-dir downloads/ -sLO < downloads.txt
+    xargs -P8 -n1 curl --create-dirs --output-dir downloads/ -sLO < downloads.txt
 )
 
 function kthw-kubectl-dl () (
@@ -157,7 +156,7 @@ function kthw-launch () (  # hostname [extra-args]
 
     virt-install \
         --name "$hostname" \
-        --qemu-commandline="-smbios type=1,serial=ds=nocloud;h=$hostname" \
+        --sysinfo system.serial="ds=nocloud;h=$hostname" \
         --import \
         --autostart \
         --noautoconsole \
@@ -200,7 +199,7 @@ function kthw-etcd () (
 
     mkdir -p server/usr/local/bin
 
-    tar -xvf downloads/etcd-v3.4.27-linux-arm64.tar.gz \
+    tar -xvf downloads/etcd-*-linux-arm64.tar.gz \
         --strip-components 1 -C server/usr/local/bin \
         etcd-*/etcd etcd-*/etcdctl
 

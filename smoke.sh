@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Kubernetes Smoke Tests
-# All functions marked # N. should be run on 'server'
+# All functions should be run on 'server'
 
 if ! (return 0 2>/dev/null); then
     echo "Usage: source $0"
@@ -76,3 +76,9 @@ function kthw-nginx-service () {
 
     curl --head http://${node}:${node_port}
 }
+
+function kthw-alpine () (
+    for i in {1..6}; do
+        kubectl run --env 'PS1=\h:\w\$ ' --image alpine "a$i" -- sleep infinity
+    done
+)

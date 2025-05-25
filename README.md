@@ -2,9 +2,21 @@
 
 `kthw.sh` is a collection of [`bash`](https://www.man7.org/linux/man-pages/man1/bash.1.html) functions for setting up a basic, experimental [Kubernetes](https://kubernetes.io) [cluster](https://kubernetes.io/docs/reference/glossary/?all=true#term-cluster) on a [Raspberry Pi 5](https://www.raspberrypi.org/products/raspberry-pi-5/).
 
-The cluster consists of three nodes: `server`, `node-0`, and `node-1`.
-- `server` runs [`etcd`](https://etcd.io), [`kube-apiserver`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/), [`kube-controller-manager`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/), [`kube-scheduler`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-scheduler/). It is also configured to run the [`kubectl`](https://kubernetes.io/docs/reference/kubectl/kubectl/) CLI tool.
-- `node-0` and `node-1` run [`kubelet`](https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/), [`kube-proxy`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/), [`containerd`](https://containerd.io/), and [`runc`](https://github.com/opencontainers/runc)
+The [cluster](https://kubernetes.io/docs/concepts/overview/components/) consists of three nodes: `server`, `node-0`, and `node-1`.
+- `server` runs
+  - [`etcd`](https://etcd.io)
+  - [`kube-apiserver`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/)
+  - [`kube-controller-manager`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/)
+  - [`kube-scheduler`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-scheduler/)
+
+  `server` is also configured to run the [`kubectl`](https://kubernetes.io/docs/reference/kubectl/kubectl/) CLI tool.
+
+- `node-0` and `node-1` run
+  - [`kubelet`](https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/)
+  - [`kube-proxy`](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/)
+  - [`containerd`](https://containerd.io/)
+  - [`runc`](https://github.com/opencontainers/runc)
+  - the `bridge` and `loopback` [CNI](https://github.com/containernetworking/plugins#main-interface-creating) plugins
 
 ## License
 
@@ -34,7 +46,7 @@ This repository reuses files from the original [Kubernetes the Hard Way](https:/
   $ cat >config.sh <<EOF
   KTHW_PI_HOST=5a
   KTHW_SSH_CA_KEY=$HOME/.ssh/ca.pub
-  KTHW_DEBIAN_IMAGE="https://cloud.debian.org/images/cloud/bookworm/20250428-2096/debian-12-genericcloud-arm64-20250428-2096.qcow2"
+  KTHW_DEBIAN_IMAGE="https://cloud.debian.org/images/cloud/bookworm/20250519-2117/debian-12-genericcloud-arm64-20250519-2117.qcow2"
   KTHW_POD_CIDR0=10.200.0.0/24
   KTHW_POD_CIDR1=10.200.1.0/24
   EOF
@@ -84,12 +96,14 @@ kthw-nodes
 
 #### Smoke Test
 
-Copy `smoke.sh` to `server` and source it.  `smoke.sh` contains a set of experiments packaged as `bash` functions.
+`smoke.sh` contains a set of `bash` functions for testing basic Kubernetes functionality.
 
 ```bash
-scp smoke.sh debian@server:
+ssh debian@server
 source smoke.sh
 ```
+
+Review the functions in `smoke.sh` and run them one at a time to understand what each test does.
 
 #### Cleanup
 

@@ -60,8 +60,8 @@ function kthw-setup () {
 # TODO verify on a fresh install of Raspberry Pi OS
 # This function is executed remotely on the Raspberry Pi using GNU parallel
 # It installs and configures libvirt, and downloads the Debian qcow2 image.
-function kthw-rpi-remote-setup () {  # Debian image URL
-    set -Eeuo pipefail
+function kthw-rpi-remote-setup () {  # Debian qcow2 image URL
+    set -xEeuo pipefail
     sudo apt-get -y install libvirt-daemon-system
 
     if ! groups | grep -q libvirt; then
@@ -137,10 +137,10 @@ function kthw-cloud-config () (  # hostname
 
     export apt_proxy
 
-    # Generate SSH host key pair and sign with CA key hosted in ssh agent.  The CA key
-    # is identified by the CA public key, $KTHW_SSH_CA_KEY
-    # ~/.ssh/know_hosts must have a line for the CA public key in the following format:
-    # @cert-authority * <content of CA public key>
+    # - generate SSH host key pair and sign with CA key hosted in ssh agent
+    # - the CA key is identified by the CA public key contained in the file $KTHW_SSH_CA_KEY
+    # - ~/.ssh/know_hosts must have a line for the CA public key in the following format:
+    #   @cert-authority * <content of CA public key>
     ssh-keygen -m RFC4716 -t ed25519 -f "$host_key" -N '' -C "root@$hostname" <<< y >/dev/null
     ssh-keygen -Us "${KTHW_SSH_CA_KEY}" -I "${hostname}_ed25519" -n "$hostname" -V -1d:+365d -h "$dir/ssh_host_ed25519_key.pub"
 
@@ -344,11 +344,15 @@ function kthw-server () {
     # start services
     ssh debian@server sudo systemctl enable --now kube-apiserver kube-controller-manager kube-scheduler
 
-    # set up a non-root user `debian` to run kubectl.
+    # set up the non-root user `debian` to run kubectl.
     mkdir -p debian/.kube
     cp admin.kubeconfig debian/.kube/config
     cp configs/debian.bashrc debian/.bashrc
     cp configs/kube-apiserver-to-kubelet.yaml debian/
+
+    # tests for basic kubernetes functionality
+    cp smoke.sh debian/
+
     rsync -rvz debian/ debian@server:/home/debian/
 
     # RBAC for kubelet?

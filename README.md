@@ -14,26 +14,27 @@ This repository reuses files from the original [Kubernetes the Hard Way](https:/
 - **Raspberry Pi 5**
   - 8GB RAM
   - Ethernet connection
-  - SSH public key auth and `sudo` without password for user `pi`
+  - SSH public key authentication and `sudo` without password for user `pi`
 
-- **Functioning DNS** that resolves the names `server`, `node-0`, and `node-1`.
+- **Functioning DNS** that resolves the names `server`, `node-0`, `node-1` and `$KTHW_PI_HOST` (see `config.sh` below).
 
 - **Local Linux system (or local macOS system** with [Homebrew](https://brew.sh)) and:
   - [`openssl`](https://www.openssl.org/), [`parallel`](https://www.gnu.org/software/parallel/), [`jq`](https://stedolan.github.io/jq/), [`yq`](https://mikefarah.gitbook.io/yq/), [`virt-install`](https://github.com/virt-manager/virt-manager/blob/main/man/virt-install.rst) installed
   - SSH agent (e.g. [Secretive on macOS](https://github.com/maxgoedjen/secretive)) with CA key
-  - On macOS, if `bash` is not the default shell, run `bash -l` in any Terminal window as needed.  Or refer to this Apple support article on [default shells](https://support.apple.com/en-us/102360) for more information on changing the default shell.
+  - On macOS, if `bash` is not the default shell, run `bash -l` in any Terminal window as needed. You can also refer to this Apple support article on [default shells](https://support.apple.com/en-us/102360) for more information on changing the default shell.
 
 - A **configuration file** `config.sh` with the following variables:
   - `KTHW_PI_HOST` hostname or IP of the Raspberry Pi system
   - `KTHW_SSH_CA_KEY` public key of SSH CA signing key held in SSH agent
   - `KTHW_DEBIAN_IMAGE` URL of [Debian Cloud image](https://cloud.debian.org/images/cloud/)
-  - `POD_CIDRn` pod CIDRs
+  - `KTHW_POD_CIDRn` pod CIDRs
+  - `KTHW_APT_CACHER_NG` (optional) URL of `apt-cacher-ng(8)` server
 
   ```bash
   $ cat >config.sh <<EOF
   KTHW_PI_HOST=5a
   KTHW_SSH_CA_KEY=$HOME/.ssh/ca.pub
-  KTHW_DEBIAN_IMAGE="https://cloud.debian.org/images/cloud/bookworm/20240717-1811/debian-12-genericcloud-arm64-20240717-1811.qcow2"
+  KTHW_DEBIAN_IMAGE="https://cloud.debian.org/images/cloud/bookworm/20250428-2096/debian-12-genericcloud-arm64-20250428-2096.qcow2"
   KTHW_POD_CIDR0=10.200.0.0/24
   KTHW_POD_CIDR1=10.200.1.0/24
   EOF
@@ -47,7 +48,7 @@ The commands in this section run on your local Linux or macOS system to
 - create the three Debian VMs on the Raspberry Pi
 - bootstrap and configure the cluster over `ssh`.
 
-Source the `bash` script `kthw.sh`. This allows you to to call its functions directly and incrementally.
+Source the `bash` script `kthw.sh`. This allows you to call its functions directly and incrementally.
 
 ```bash
 source kthw.sh
@@ -77,7 +78,7 @@ kthw-certs
 # 7. install kube-apiserver, kube-controller-manager, kube-scheduler, kubectl on 'server'
 kthw-server
 
-# 8. install kublet, kubeproxy, containerd, runc, CNI plugins and pod routes on worker nodes (node-0, node-1)
+# 8. install kubelet, kubeproxy, containerd, runc, CNI plugins and pod routes on worker nodes (node-0, node-1)
 kthw-nodes
 ```
 
@@ -89,8 +90,6 @@ Copy `smoke.sh` to `server` and source it.  `smoke.sh` contains a set of experim
 scp smoke.sh debian@server:
 source smoke.sh
 ```
-
-TODO
 
 #### Cleanup
 
@@ -104,7 +103,7 @@ kthw-terminate-all
 - Review the list of files that will be deleted from the local system in the final step and preserve any files you want to keep.
 
 ```bash
-git clean -fxd -n  # dry-run.  review list of files that will be deleted
+git clean -fxd -n  # dry-run to review list of files that will be deleted
 ```
 
 - Delete all files unknown to `git`, including ignored files.

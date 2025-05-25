@@ -112,10 +112,14 @@ if ! shopt -oq posix; then
   fi
 fi
 
+# https://kubernetes.io/docs/reference/kubectl/quick-reference/#kubectl-autocomplete
 function kubectl-completion () {
     which kubectl > /dev/null || return
 
     source <(kubectl completion bash)
+    alias k=kubectl
+    complete -o default -F __start_kubectl k
+
     unset -f kubectl-completion
 }
 

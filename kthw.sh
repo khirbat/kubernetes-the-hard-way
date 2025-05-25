@@ -26,6 +26,11 @@ function kthw-darwin-setup () {
     # install missing packages
     brew list "${packages[@]}" >/dev/null 2>/dev/null || brew install "${packages[@]}"
 
+    # install kubectl
+    kubectl_version=$(head -n1 downloads.txt | sed -E 's|.*/v([0-9]+\.[0-9]+)\.[0-9]+.*|\1|')
+    brew install "kubernetes-cli@${kubectl_version}"
+    brew link --force --overwrite "kubernetes-cli@${kubectl_version}"
+
     LIBVIRT_DEFAULT_URI=qemu+ssh://pi@${KTHW_PI_HOST}/system
     PATH="$(brew --prefix coreutils)/libexec/gnubin":$PATH  # for install -D
     SSH_AUTH_SOCK="$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh"
@@ -55,16 +60,34 @@ function kthw-setup () {
 # TODO verify on a fresh install of Raspberry Pi OS
 # This function is executed remotely on the Raspberry Pi using GNU parallel
 # It installs and configures libvirt, and downloads the Debian qcow2 image.
-function kthw-rpi-remote-setup () {
-    set -Eeuox pipefail
+function kthw-rpi-remote-setup () {  # Debian image URL
+    set -Eeuo pipefail
     sudo apt-get -y install libvirt-daemon-system
-    sudo usermod -a -G kvm,libvirt pi
 
-    newgrp libvirt <<EOF
-virsh -c qemu:///system pool-define-as default dir --target /var/lib/libvirt/images
-curl --output-dir /var/lib/libvirt/images -LO $1
-virsh -c qemu:///system pool-refresh default
-EOF
+    if ! groups | grep -q libvirt; then
+        sudo usermod -a -G libvirt,kvm pi
+        echo "User 'pi' added to libvirt group. Logging out. Please re-run kthw-rpi-setup."
+        loginctl terminate-user pi
+    fi
+
+    IMAGE_URL="$1"
+    VOL="$(basename "$1")"
+    IMG="/tmp/$VOL"
+
+    export LIBVIRT_DEFAULT_URI=qemu:///system
+    if ! virsh pool-info default >/dev/null 2>&1; then
+        sudo mkdir -p /var/lib/libvirt/images
+        virsh pool-define-as default dir --target /var/lib/libvirt/images
+        virsh pool-start default
+        virsh pool-autostart default
+    fi
+
+    if ! virsh vol-info --pool default "$VOL" >/dev/null 2>&1; then
+        curl -C- --output-dir /tmp -LO "$IMAGE_URL"
+        virsh pool-info default
+        virsh vol-create-as default "$VOL" "$(qemu-img info --output json "$IMG" | jq -r .\"virtual-size\")"
+        virsh vol-upload --pool default --vol "$VOL" --file "$IMG"
+    fi
 }
 export -f kthw-rpi-remote-setup
 
@@ -81,30 +104,7 @@ function kthw-dl () (
     set -Eeuo pipefail
     test -f "downloads.txt"
 
-    xargs -P8 -n1 curl --create-dirs --output-dir downloads/ -sLO < downloads.txt
-)
-
-function kthw-kubectl-dl () (
-    set -Eeuo pipefail
-
-    case "$OSTYPE" in
-        linux*) OS="linux" ;;
-        darwin*) OS="darwin" ;;
-        *) echo "Unsupported OS: $OSTYPE"; return 1 ;;
-    esac
-
-    case "$(uname -m)" in
-        x86_64) ARCH="amd64" ;;
-        arm64|aarch64) ARCH="arm64" ;;
-        *) echo "Unsupported architecture: $(uname -m)"; return 1 ;;
-    esac
-
-    VERSION="v1.28.3"   # FIXME
-    BASE_URL="https://storage.googleapis.com/kubernetes-release/release"
-
-    curl -LO "${BASE_URL}/${VERSION}/bin/${OS}/${ARCH}/kubectl"
-    chmod +x kubectl
-    ./kubectl version --client
+    xargs -P8 -n1 curl -C- --create-dirs --output-dir downloads/ -sLO < downloads.txt
 )
 
 function kthw-ssh-cleanup () {
@@ -128,6 +128,15 @@ function kthw-cloud-config () (  # hostname
     export host_key="$dir/ssh_host_ed25519_key"
     export KTHW_SSH_CA_KEY
 
+    # $'' is used to preserve newlines in the string
+    if [[ "${KTHW_APT_CACHER_NG:-}" ]]; then
+        apt_proxy=$'Acquire::http::Proxy "'$KTHW_APT_CACHER_NG$'";\n'
+    else
+        apt_proxy=$'// no apt-cacher-ng proxy //\n'
+    fi
+
+    export apt_proxy
+
     # Generate SSH host key pair and sign with CA key hosted in ssh agent.  The CA key
     # is identified by the CA public key, $KTHW_SSH_CA_KEY
     # ~/.ssh/know_hosts must have a line for the CA public key in the following format:
@@ -140,6 +149,7 @@ function kthw-cloud-config () (  # hostname
     # 2. host key and certificate (see ssh-keys, https://cloudinit.readthedocs.io/en/latest/reference/modules.html#ssh)
     yq '
         .write_files += {"path" : "/etc/ssh/trusted-user-ca-keys.pub", "content" : load_str(strenv(KTHW_SSH_CA_KEY))} |
+        .write_files += {"path" : "/etc/apt/apt.conf.d/00proxy", "content" : strenv(apt_proxy)} |
         .ssh_keys.ed25519_private = load_str(strenv(host_key)) |
         .ssh_keys.ed25519_certificate = load_str(strenv(host_cert))
     ' configs/debian12.yaml
@@ -181,7 +191,7 @@ function kthw-terminate () {
 #
 # 4. launch Debian VMs (server, node-0, node-1)
 function kthw-launch-all () {
-    kthw-launch server --vcpus 2
+    kthw-launch server --vcpus 2 --memory 2048
     kthw-launch node-0 --vcpus 1 --memory 1024
     kthw-launch node-1 --vcpus 1 --memory 1024
 }
@@ -372,10 +382,11 @@ function kthw-node () (  # hostname pod-cidr
     cp "$host.crt" "$host/var/lib/kubelet/kubelet.crt"
     cp "$host.key" "$host/var/lib/kubelet/kubelet.key"
 
+    export subnet
     yq e '.podCIDR = env(subnet)' configs/kubelet-config.yaml \
         > "$host"/var/lib/kubelet/kubelet-config.yaml
 
-    # kublet kubeconfig
+    # kubelet kubeconfig
     kubeconfig=$host/var/lib/kubelet/kubeconfig
     set-cluster "$kubeconfig"
     set-credentials "system:node:${host}" "$host" "$kubeconfig"
@@ -441,7 +452,7 @@ function kthw-routes () (  # pod-cidr-0 pod-cidr-1
 )
 
 #
-# 8. install kublet, kubeproxy, containerd, runc, CNI plugins and pod routes on worker nodes (node-0, node-1)
+# 8. install kubelet, kubeproxy, containerd, runc, CNI plugins and pod routes on worker nodes (node-0, node-1)
 function kthw-nodes () {
     kthw-node node-0 "$KTHW_POD_CIDR0"
     kthw-node node-1 "$KTHW_POD_CIDR1"

@@ -43,7 +43,7 @@ function kthw-nginx-pod-name () {
 # 4. nginx port forwarding
 function kthw-nginx-port-forward () {
     kubectl port-forward "$(kthw-nginx-pod-name)" 8080:80 &
-    sleep 1
+    sleep 2
     curl --head http://127.0.0.1:8080
     fg
 }

@@ -77,8 +77,16 @@ function kthw-nginx-service () {
     curl --head http://${node}:${node_port}
 }
 
+#
+# 8. create a few alpine pods
 function kthw-alpine () (
     for i in {1..6}; do
         kubectl run --env 'PS1=\h:\w\$ ' --image alpine "a$i" -- sleep infinity
     done
 )
+
+#
+# 9. create a service account token
+function kthw-sa-token () {
+    kubectl create token default --duration=1h
+}

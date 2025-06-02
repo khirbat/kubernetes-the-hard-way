@@ -15,6 +15,8 @@ EOF
     exit 1
 fi
 
+source config.sh
+
 function kthw-darwin-setup () {
     local packages=(
         gnu-tar openssl jq yq
@@ -224,18 +226,11 @@ function kthw-etcd () (
 
 # create cluster CA
 function kthw-ca () {
-    test -f ca.conf || return
-
-    openssl genrsa -out ca.key 4096
-    openssl req -x509 -new -sha512 -noenc \
-            -key ca.key -days 3653 \
-            -config ca.conf \
-            -out ca.crt
-}
-
-function kthw-ca-ed25519 () {
-    openssl genpkey -algorithm ed25519 -out ca.key
-    openssl req -x509 -new -key ca.key -days 3653 -config ca.conf -out ca.crt
+    # the [req] section from ca.conf is used by default
+    # see https://docs.openssl.org/3.5/man1/openssl-req/
+    openssl req -x509 -new -newkey ed25519 -noenc \
+        -days 3653 -config ca.conf \
+        -keyout ca.key -out ca.crt
 }
 
 #
@@ -253,19 +248,14 @@ function kthw-certs () (
         "service-accounts"
     )
 
+    # ca.conf has two sections for each certificate. e.g. [admin] and [admin_ext]
+    # for more details, see https://docs.openssl.org/3.5/man1/openssl-req/
+    # and https://docs.openssl.org/3.5/man5/x509v3_config/
     for i in "${certs[@]}"; do
-        openssl genrsa -out "${i}.key" 4096
-
-        openssl req -new -key "${i}.key" -sha256 \
-                -config "ca.conf" -section "${i}" \
-                -out "${i}.csr"
-
-        openssl x509 -req -days 3653 -in "${i}.csr" \
-                -copy_extensions copyall \
-                -sha256 -CA "ca.crt" \
-                -CAkey "ca.key" \
-                -CAcreateserial \
-                -out "${i}.crt"
+        openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -noenc \
+            -config ca.conf -section "${i}" -extensions "${i}_ext" -days 3653 \
+            -CA ca.crt -CAkey ca.key \
+            -keyout "${i}.key" -out "${i}.crt"
     done
 )
 

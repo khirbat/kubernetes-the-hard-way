@@ -8,7 +8,7 @@ if ! (return 0 2>/dev/null); then
     echo
     # grep -E '^#([^!#]|$)' "$0"
     cat <<'EOF'
-After sourcing the script, run the functions marked with an # N. comment in the order they appear on the local Linux or macOS system.
+After sourcing the script, run the functions marked with an # N. comment in the order they appear
 
 EOF
     grep -A1 -E '^# [[:digit:]]+\.' "$0" | sed 's/^function //;s/ ().*//'
@@ -19,13 +19,14 @@ source config.sh
 
 function kthw-darwin-setup () {
     local packages=(
-        gnu-tar openssl jq yq
+        gnu-tar openssl jq yq parallel
+        libvirt       # for virsh
         virt-manager  # for virt-install
         rsync         # for --mkpath
         coreutils     # for install -D
     )
 
-    # install missing packages
+    # install packages
     brew list "${packages[@]}" >/dev/null 2>/dev/null || brew install "${packages[@]}"
 
     # install kubectl
@@ -33,14 +34,33 @@ function kthw-darwin-setup () {
     brew install "kubernetes-cli@${kubectl_version}"
     brew link --force --overwrite "kubernetes-cli@${kubectl_version}"
 
+    if [[ "$KTHW_SSH_CA_KEY" == *"Secretive.SecretAgent"* ]]; then
+        SSH_AUTH_SOCK="$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh"
+    fi
+
     LIBVIRT_DEFAULT_URI=qemu+ssh://pi@${KTHW_PI_HOST}/system
     PATH="$(brew --prefix coreutils)/libexec/gnubin":$PATH  # for install -D
-    SSH_AUTH_SOCK="$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh"
+    KUBECONFIG=admin.kubeconfig
 
-    export PATH LIBVIRT_DEFAULT_URI SSH_AUTH_SOCK
+    export PATH LIBVIRT_DEFAULT_URI SSH_AUTH_SOCK KUBECONFIG
 }
 
 function kthw-linux-setup () {
+    local packages=(
+        rsync jq yq parallel
+        virtinst  # for virt-install
+        libvirt-clients  # for virsh
+    )
+
+    if ! command -v apt-get >/dev/null; then
+        echo "Only Debian-based systems are supported at the moment"
+        echo "Please install the packages for the following tools manually: jq yq parallel virsh virt-install rsync"
+        return 1
+    fi
+
+    # install packages
+    sudo apt-get install -y --no-install-recommends virtinst rsync jq yq
+
     LIBVIRT_DEFAULT_URI=qemu+ssh://pi@${KTHW_PI_HOST}/system
 
     export LIBVIRT_DEFAULT_URI
@@ -94,19 +114,19 @@ function kthw-rpi-remote-setup () {  # Debian qcow2 image URL
 export -f kthw-rpi-remote-setup
 
 #
-# 2. Raspberry Pi OS setup (install packages, set up libvirt, download Debian image)
+# 2. Raspberry Pi OS setup (install packages, set up libvirt, download Debian QCOW2 image)
 function kthw-rpi-setup () {
     # https://www.gnu.org/software/parallel/parallel_tutorial.html#transferring-environment-variables-and-functions
-    parallel -j1 --env kthw-rpi-remote-setup -S "$KTHW_PI_HOST" kthw-rpi-remote-setup ::: "$KTHW_DEBIAN_IMAGE"
+    parallel --no-notice -j1 --env kthw-rpi-remote-setup -S "$KTHW_PI_HOST" kthw-rpi-remote-setup ::: "$KTHW_DEBIAN_IMAGE"
 }
 
 #
-# 3. download packages listed in downloads.txt
+# 3. download binaries listed in downloads.txt
 function kthw-dl () (
     set -Eeuo pipefail
     test -f "downloads.txt"
 
-    xargs -P8 -n1 curl -C- --create-dirs --output-dir downloads/ -sLO < downloads.txt
+    xargs -P8 -n1 curl -R -C- --create-dirs --output-dir downloads/ -sLO < downloads.txt
 )
 
 function kthw-ssh-cleanup () {
@@ -176,7 +196,7 @@ function kthw-launch () (  # hostname [extra-args]
         --controller type=scsi,model=virtio-scsi \
         --osinfo debian12 \
         --disk size=20,backing_store=/var/lib/libvirt/images/"$(basename "$KTHW_DEBIAN_IMAGE")" \
-        --network type=direct,source=eth0,source_mode=bridge,trustGuestRxFilters=yes \
+        --network type=direct,source=eth0,source.mode=bridge,trustGuestRxFilters=yes \
         --cloud-init user-data="debian12-$hostname.yaml" \
         "${@:2}"
     echo
@@ -191,8 +211,9 @@ function kthw-terminate () {
 }
 
 #
-# 4. launch Debian VMs (server, node-0, node-1)
+# 4. provisioning compute resources
 function kthw-launch-all () {
+    # launch three VMs: server, node-0, node-1
     kthw-launch server --vcpus 2 --memory 2048
     kthw-launch node-0 --vcpus 1 --memory 1024
     kthw-launch node-1 --vcpus 1 --memory 1024
@@ -304,10 +325,10 @@ function kthw-server-kubeconfigs () (
 )
 
 #
-# 7. install kube-apiserver, kube-controller-manager, kube-scheduler, kubectl on 'server'
+# 7. install kube-apiserver, kube-controller-manager, kube-scheduler on 'server'
 function kthw-server () {
     install -D -m 0755 -t server/usr/local/bin \
-        downloads/kube{-apiserver,-controller-manager,-scheduler,ctl}
+        downloads/kube{-apiserver,-controller-manager,-scheduler}
 
     # kubernetes configuration
     install -D -t server/etc/kubernetes/config \
@@ -334,19 +355,8 @@ function kthw-server () {
     # start services
     ssh debian@server sudo systemctl enable --now kube-apiserver kube-controller-manager kube-scheduler
 
-    # set up the non-root user `debian` to run kubectl.
-    mkdir -p debian/.kube
-    cp admin.kubeconfig debian/.kube/config
-    cp configs/debian.bashrc debian/.bashrc
-    cp configs/kube-apiserver-to-kubelet.yaml debian/
-
-    # tests for basic kubernetes functionality
-    cp smoke.sh debian/
-
-    rsync -rvz debian/ debian@server:/home/debian/
-
     # RBAC for kubelet?
-    ssh debian@server kubectl apply -f kube-apiserver-to-kubelet.yaml
+    kubectl apply -f configs/kube-apiserver-to-kubelet.yaml
 }
 
 function kthw-node () (  # hostname pod-cidr
@@ -446,7 +456,7 @@ function kthw-routes () (  # pod-cidr-0 pod-cidr-1
 )
 
 #
-# 8. install kubelet, kubeproxy, containerd, runc, CNI plugins and pod routes on worker nodes (node-0, node-1)
+# 8. install kubelet, kube-proxy, containerd, runc, CNI plugins and pod routes on worker nodes (node-0, node-1)
 function kthw-nodes () {
     kthw-node node-0 "$KTHW_POD_CIDR0"
     kthw-node node-1 "$KTHW_POD_CIDR1"

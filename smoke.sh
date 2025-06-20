@@ -1,14 +1,13 @@
 #!/bin/bash
 
 # Kubernetes Smoke Tests
-# All functions should be run on 'server'
 
 if ! (return 0 2>/dev/null); then
     echo "Usage: source $0"
     echo
     # grep -E '^#([^!#]|$)' "$0"
     cat <<'EOF'
-After sourcing the script, run the functions marked with an # N. comment in the order they appear on 'server'.
+After sourcing the script, run the functions marked with an # N. comment in the order they appear
 
 EOF
     grep -A1 -E '^# [[:digit:]]+\.' "$0" | sed 's/^function //;s/ ().*//'
@@ -16,7 +15,7 @@ EOF
 fi
 
 #
-# 1. Create a generic secret
+# 1. create a generic secret
 function kthw-generic-secret () {
     kubectl create secret generic kthw-generic-secret --from-literal="username=admin" --from-literal="password=1f2d1e2e67df"
 }

@@ -197,7 +197,7 @@ function kthw-launch () (  # hostname [extra-args]
         --osinfo debian12 \
         --disk size=20,backing_store=/var/lib/libvirt/images/"$(basename "$KTHW_DEBIAN_IMAGE")" \
         --network type=direct,source=eth0,source.mode=bridge,trustGuestRxFilters=yes \
-        --cloud-init user-data="debian12-$hostname.yaml" \
+        --cloud-init user-data="debian12-$hostname.yaml,meta-data=/dev/null" \
         "${@:2}"
     echo
 )

@@ -23,7 +23,7 @@ function kthw-generic-secret () {
 #
 # 2. dump generic secret
 function kthw-generic-secret-hexdump () {
-    etcdctl get /registry/secrets/default/kthw-generic-secret | hexdump -C
+    ssh debian@server etcdctl get /registry/secrets/default/kthw-generic-secret | hexdump -C
 }
 
 #
@@ -73,7 +73,7 @@ function kthw-nginx-service () {
     node_port=$(kubectl get svc nginx -o jsonpath="{.spec.ports[0].nodePort}")
 
 
-    curl --head http://${node}:${node_port}
+    curl --head "http://${node}:${node_port}"
 }
 
 #

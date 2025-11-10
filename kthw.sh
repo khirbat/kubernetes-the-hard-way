@@ -30,7 +30,7 @@ function kthw-darwin-setup () {
     brew list "${packages[@]}" >/dev/null 2>/dev/null || brew install "${packages[@]}"
 
     # install kubectl
-    kubectl_version=$(head -n1 downloads.txt | sed -E 's|.*/v([0-9]+\.[0-9]+)\.[0-9]+.*|\1|')
+    kubectl_version=$(head -n1 downloads.txt | sed -E 's|.*/v([0-9]+\.[0-9]+)\.[0-9]+.*|\1|')  # v1.33.1 -> 1.33
     brew install "kubernetes-cli@${kubectl_version}"
     brew link --force --overwrite "kubernetes-cli@${kubectl_version}"
 
@@ -161,7 +161,7 @@ function kthw-cloud-config () (  # hostname
 
     # - generate SSH host key pair and sign with CA key hosted in ssh agent
     # - the CA key is identified by the CA public key contained in the file $KTHW_SSH_CA_KEY
-    # - ~/.ssh/know_hosts must have a line for the CA public key in the following format:
+    # - ~/.ssh/known_hosts must have a line for the CA public key in the following format:
     #   @cert-authority * <content of CA public key>
     ssh-keygen -m RFC4716 -t ed25519 -f "$host_key" -N '' -C "root@$hostname" <<< y >/dev/null
     ssh-keygen -Us "${KTHW_SSH_CA_KEY}" -I "${hostname}_ed25519" -n "$hostname" -V -1d:+365d -h "$dir/ssh_host_ed25519_key.pub"

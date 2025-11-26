@@ -137,7 +137,7 @@ function kthw-ssh-cleanup () {
     rmdir "$dir"
 }
 
-# augment cloud-config in configs/debian12.yaml
+# augment cloud-config in configs/debian13.yaml
 function kthw-cloud-config () (  # hostname
     set -Eeuo pipefail
 
@@ -174,7 +174,7 @@ function kthw-cloud-config () (  # hostname
         .write_files += {"path" : "/etc/apt/apt.conf.d/00proxy", "content" : strenv(apt_proxy)} |
         .ssh_keys.ed25519_private = load_str(strenv(host_key)) |
         .ssh_keys.ed25519_certificate = load_str(strenv(host_cert))
-    ' configs/debian12.yaml
+    ' configs/debian13.yaml
 )
 
 ## launch a Debian VM
@@ -184,7 +184,7 @@ function kthw-launch () (  # hostname [extra-args]
 
     hostname=$1
 
-    kthw-cloud-config "$hostname" > "debian12-$hostname.yaml"
+    kthw-cloud-config "$hostname" > "debian13-$hostname.yaml"
 
     virt-install \
         --name "$hostname" \
@@ -194,10 +194,10 @@ function kthw-launch () (  # hostname [extra-args]
         --noautoconsole \
         --boot firmware.feature0.enabled=no,firmware.feature0.name=secure-boot \
         --controller type=scsi,model=virtio-scsi \
-        --osinfo debian12 \
+        --osinfo debian13 \
         --disk size=20,backing_store=/var/lib/libvirt/images/"$(basename "$KTHW_DEBIAN_IMAGE")" \
         --network type=direct,source=eth0,source.mode=bridge,trustGuestRxFilters=yes \
-        --cloud-init user-data="debian12-$hostname.yaml,meta-data=/dev/null" \
+        --cloud-init user-data="debian13-$hostname.yaml,meta-data=/dev/null" \
         "${@:2}"
     echo
 )

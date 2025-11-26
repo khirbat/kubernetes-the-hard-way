@@ -188,7 +188,7 @@ Create the file `config.sh` in the working directory (`kubernetes-the-hard-way/`
 $ cat >config.sh <<EOF
 KTHW_PI_HOST=5a
 KTHW_SSH_CA_KEY=$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/PublicKeys/7c66b4c7decda51b23caf600d9d379f3.pub  # or $HOME/.ssh/ca.pub
-KTHW_DEBIAN_IMAGE="https://cloud.debian.org/images/cloud/bookworm/20250519-2117/debian-12-genericcloud-arm64-20250519-2117.qcow2"
+KTHW_DEBIAN_IMAGE="https://cloud.debian.org/images/cloud/trixie/20251117-2299/debian-13-genericcloud-arm64-20251117-2299.qcow2"
 KTHW_POD_CIDR0=10.200.0.0/24
 KTHW_POD_CIDR1=10.200.1.0/24
 EOF
@@ -229,7 +229,7 @@ kthw-setup
 
 ### 2. Set up the Raspberry Pi
 
-The next step is to prepare the Raspberry Pi for running the Debian VMs. This involves installing `libvirt` and creating a `libvirt` volume from a Debian Cloud image (e.g. `debian-12-genericcloud-arm64-20250519-2117.qcow2`, supplied via `$KTHW_DEBIAN_IMAGE`). The Debian Cloud image volume will be used later when launching the VMs.
+The next step is to prepare the Raspberry Pi for running the Debian VMs. This involves installing `libvirt` and creating a `libvirt` volume from a Debian Cloud image (e.g. `debian-13-genericcloud-arm64-20251117-2299.qcow2`, supplied via `$KTHW_DEBIAN_IMAGE`). The Debian Cloud image volume will be used later when launching the VMs.
 
 Run the `bash` function `kthw-rpi-setup` to set up `libvirt` on the Raspberry Pi:
 
@@ -244,7 +244,7 @@ virsh vol-info --pool default "$(basename "$KTHW_DEBIAN_IMAGE")"
 ```
 
 ```console
-Name:           debian-12-genericcloud-arm64-20250519-2117.qcow2
+Name:           debian-13-genericcloud-arm64-20251117-2299.qcow2
 Type:           file
 Capacity:       3.00 GiB
 Allocation:     3.00 GiB
@@ -260,25 +260,22 @@ Run the `bash` function `kthw-dl` to download the Kubernetes components to `down
 kthw-dl
 ```
 
-The total size is approximately 500 MB. Use `ls` to list the downloaded files:
-
-```bash
-ls -oh downloads/
-```
+The total size is approximately 500 MB.
 
 ```console
-total 559M
--rw-r--r--. 1 pi 50M Apr 25 12:58 cni-plugins-linux-arm64-v1.7.1.tgz
--rw-r--r--. 1 pi 30M May 20 18:01 containerd-2.1.1-linux-arm64.tar.gz
--rw-r--r--. 1 pi 19M Apr 22 07:51 crictl-v1.33.0-linux-arm64.tar.gz
--rw-r--r--. 1 pi 21M May 15 19:39 etcd-v3.6.0-linux-arm64.tar.gz
--rw-r--r--. 1 pi 89M May 15 17:47 kube-apiserver
--rw-r--r--. 1 pi 83M May 15 17:47 kube-controller-manager
--rw-r--r--. 1 pi 56M May 15 17:47 kubectl
--rw-r--r--. 1 pi 75M May 15 17:47 kubelet
--rw-r--r--. 1 pi 65M May 15 17:47 kube-proxy
--rw-r--r--. 1 pi 64M May 15 17:47 kube-scheduler
--rw-r--r--. 1 pi 11M Apr 29 04:43 runc.arm64
+$ ls -oh downloads/
+total 465M
+-rw-r--r-- 1 pi 49M Sep  1 08:29 cni-plugins-linux-arm64-v1.8.0.tgz
+-rw-r--r-- 1 pi 31M Nov  5 17:34 containerd-2.2.0-linux-arm64.tar.gz
+-rw-r--r-- 1 pi 18M Aug 21 00:58 crictl-v1.34.0-linux-arm64.tar.gz
+-rw-r--r-- 1 pi 22M Nov 11 21:18 etcd-v3.6.6-linux-arm64.tar.gz
+-rw-r--r-- 1 pi 77M Nov 12 01:24 kube-apiserver
+-rw-r--r-- 1 pi 65M Nov 12 01:24 kube-controller-manager
+-rw-r--r-- 1 pi 41M Nov 12 01:24 kube-proxy
+-rw-r--r-- 1 pi 45M Nov 12 01:24 kube-scheduler
+-rw-r--r-- 1 pi 56M Nov 12 01:24 kubectl
+-rw-r--r-- 1 pi 54M Nov 12 01:24 kubelet
+-rw-r--r-- 1 pi 11M Nov  5 01:15 runc.arm64
 ```
 
 ### 4. Provision compute resources
@@ -299,7 +296,7 @@ kthw-launch-all
 
 `kthw-launch-all` uses [virt-install](https://github.com/virt-manager/virt-manager/blob/main/man/virt-install.rst) to create the VMs. The 20 GB disk for each VM is created from the Debian Cloud image volume. Each VM's network interface is directly attached to the physical `eth0` interface on the Raspberry Pi. The VMs appear on the same local network as the Raspberry Pi and obtain IPv4 addresses via DHCP from the main network. The VMs can communicate with other hosts on the same network directly without NAT or port forwarding.
 
-`kthw-launch-all` also generates an SSH host key and certificate for each VM. The [SSH configuration](https://cloudinit.readthedocs.io/en/latest/reference/modules.html#ssh) for each VM is combined with `configs/debian12.yaml` and inserted into each VM using `virt-install`'s [--cloud-init](https://manpages.debian.org/bookworm/virtinst/virt-install.1.en.html#--cloud-init) option.
+`kthw-launch-all` also generates an SSH host key and certificate for each VM. The [SSH configuration](https://cloudinit.readthedocs.io/en/latest/reference/modules.html#ssh) for each VM is combined with `configs/debian13.yaml` and inserted into each VM using `virt-install`'s [--cloud-init](https://manpages.debian.org/bookworm/virtinst/virt-install.1.en.html#--cloud-init) option.
 
 Verify that the VMs are running, using the `virsh list` command:
 
@@ -318,10 +315,10 @@ Verify that the VMs are accessible using `ssh`:
 
 ```console
 kubernetes-the-hard-way $ ssh debian@server uname -a
-Linux server 6.1.0-35-cloud-arm64 #1 SMP Debian 6.1.137-1 (2025-05-07) aarch64 GNU/Linux
+Linux server 6.12.57+deb13-cloud-arm64 #1 SMP Debian 6.12.57-1 (2025-11-05) aarch64 GNU/Linux
 
 kubernetes-the-hard-way $ ssh debian@node-1 uname -a
-Linux node-1 6.1.0-35-cloud-arm64 #1 SMP Debian 6.1.137-1 (2025-05-07) aarch64 GNU/Linux
+Linux node-1 6.12.57+deb13-cloud-arm64 #1 SMP Debian 6.12.57-1 (2025-11-05) aarch64 GNU/Linux
 ```
 
 ### 5. Install etcd on `server`

@@ -11,10 +11,9 @@ debian/
 *.key
 *.kubeconfig
 *.kubectl
-*.yaml
+/*.yaml
 ca.srl
 kubectl
-machines.txt
 
 # Created by https://www.toptal.com/developers/gitignore/api/emacs,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=emacs,visualstudiocode

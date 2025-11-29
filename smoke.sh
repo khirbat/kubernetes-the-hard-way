@@ -34,8 +34,8 @@ function kthw-nginx-deploy () {
     kubectl get pods -A
 }
 
-function kthw-nginx-pod-name () {
-    kubectl get pods -l app=nginx -o jsonpath="{.items[0].metadata.name}"
+function kthw-pod-name () {  # label
+    kubectl get pods -l app="$1" -o jsonpath="{.items[0].metadata.name}"
 }
 
 #
@@ -56,14 +56,12 @@ function kthw-nginx-logs () {
 #
 # 6. nginx exec
 function kthw-nginx-exec () {
-    kubectl exec -it "$(kthw-nginx-pod-name)" -- nginx -v
+    kubectl exec -it "$(kthw-pod-name nginx)" -- nginx -v
 }
 
 #
 # 7. nginx service
-function kthw-nginx-service () {
-    local node node_port
-
+function kthw-nginx-service () (
     kubectl expose deployment nginx --port 80 --type NodePort
     kubectl get services nginx
 
@@ -72,9 +70,8 @@ function kthw-nginx-service () {
 
     node_port=$(kubectl get svc nginx -o jsonpath="{.spec.ports[0].nodePort}")
 
-
     curl --head "http://${node}:${node_port}"
-}
+)
 
 #
 # 8. create netshoot pods
@@ -83,7 +80,16 @@ function kthw-netshoot () {
 }
 
 #
-# 9. create a service account token
-function kthw-sa-token () {
-    kubectl create token default --duration=1h
-}
+# 9. access API server from a pod
+# https://kubernetes.io/docs/tasks/run-application/access-api-from-pod/#without-using-a-proxy
+function kthw-api-from-pod () (
+    pod=$(kthw-pod-name netshoot)
+
+    kubectl exec -i "$pod" -- bash <<'EOF' | jq
+SA=/var/run/secrets/kubernetes.io/serviceaccount
+
+curl -s --cacert "$SA/ca.crt" \
+    -H "Authorization: Bearer $(cat "$SA/token")" \
+    https://${KUBERNETES_SERVICE_HOST}/api
+EOF
+)

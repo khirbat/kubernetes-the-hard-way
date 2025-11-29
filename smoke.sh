@@ -77,12 +77,10 @@ function kthw-nginx-service () {
 }
 
 #
-# 8. create a few alpine pods
-function kthw-alpine () (
-    for i in {1..6}; do
-        kubectl run --env 'PS1=\h:\w\$ ' --image alpine "a$i" -- sleep infinity
-    done
-)
+# 8. create netshoot pods
+function kthw-netshoot () {
+    kubectl apply -f configs/netshoot-deployment.yaml
+}
 
 #
 # 9. create a service account token

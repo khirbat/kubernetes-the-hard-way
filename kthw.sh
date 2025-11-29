@@ -148,7 +148,7 @@ function kthw-cloud-config () (  # hostname
     # shellcheck disable=SC2034
     export host_cert="$dir/ssh_host_ed25519_key-cert.pub"
     export host_key="$dir/ssh_host_ed25519_key"
-    export KTHW_SSH_CA_KEY
+    export KTHW_SSH_CA_KEY KTHW_SSH_KEY
 
     # $'' is used to preserve newlines in the string
     if [[ "${KTHW_APT_CACHER_NG:-}" ]]; then
@@ -167,13 +167,13 @@ function kthw-cloud-config () (  # hostname
     ssh-keygen -Us "${KTHW_SSH_CA_KEY}" -I "${hostname}_ed25519" -n "$hostname" -V -1d:+365d -h "$dir/ssh_host_ed25519_key.pub"
 
     # add these to cloud-config
-    # 1. trusted user CA key
+    # 1. ~/.ssh/authorized_keys for the default user
     # 2. host key and certificate (see ssh-keys, https://cloudinit.readthedocs.io/en/latest/reference/modules.html#ssh)
     yq '
-        .write_files += {"path" : "/etc/ssh/trusted-user-ca-keys.pub", "content" : load_str(strenv(KTHW_SSH_CA_KEY))} |
         .write_files += {"path" : "/etc/apt/apt.conf.d/00proxy", "content" : strenv(apt_proxy)} |
         .ssh_keys.ed25519_private = load_str(strenv(host_key)) |
-        .ssh_keys.ed25519_certificate = load_str(strenv(host_cert))
+        .ssh_keys.ed25519_certificate = load_str(strenv(host_cert)) |
+        .ssh_authorized_keys = [load_str(strenv(KTHW_SSH_KEY))]
     ' configs/debian13.yaml
 )
 

@@ -55,7 +55,7 @@ root@5a:~#
 
 #### Set up SSH CA for creating SSH certificates
 
-An SSH CA key will be used to create SSH user and host certificates. For more details, see the [OpenSSH documentation on certificates](https://manpages.debian.org/bookworm/openssh-client/ssh-keygen.1.en.html#CERTIFICATES).
+An SSH CA key will be used to create SSH host certificates. For more details, see the [OpenSSH documentation on certificates](https://manpages.debian.org/bookworm/openssh-client/ssh-keygen.1.en.html#CERTIFICATES).
 
 For each newly created VM, a [HostKey](https://manpages.debian.org/bookworm/openssh-server/sshd_config.5.en.html#HostKey) and [HostCertificate](https://manpages.debian.org/bookworm/openssh-server/sshd_config.5.en.html#HostCertificate) are generated and inserted into the VM by [cloud-init](https://cloudinit.readthedocs.io/en/latest/reference/modules.html#ssh). This allows the first SSH connection to that VM to be trusted automatically without encountering the usual SSH [TOFU](https://en.wikipedia.org/wiki/Trust_on_first_use) message and prompt like this:
 
@@ -67,9 +67,7 @@ This key is not known by any other names.
 Are you sure you want to continue connecting (yes/no/[fingerprint])?
 ```
 
-The SSH CA is also used to create SSH user certificates for logging into the VMs. `cloud-init` will set up [TrustedUserCAKeys](https://manpages.debian.org/bookworm/openssh-server/sshd_config.5.en.html#TrustedUserCAKeys) on each VM during the first boot. This is an alternative to adding a public key to `~/.ssh/authorized_keys`.
-
-There are two ways to set up the SSH CA key and SSH user certificates. The first works for both Linux and macOS. The second is for macOS systems using [Secretive](https://github.com/maxgoedjen/secretive). Secretive stores and manages SSH keys in the Secure Enclave on Macs and also provides its own SSH agent.
+There are two ways to set up the SSH CA. The first works for both Linux and macOS. The second is for macOS systems using [Secretive](https://github.com/maxgoedjen/secretive). Secretive stores and manages SSH keys in the Secure Enclave on Macs and also provides its own SSH agent.
 
 ##### Generic SSH CA setup using [ssh-agent(1)](https://manpages.debian.org/bookworm/openssh-client/ssh-agent.1.en.html) on Linux or macOS
 
@@ -97,22 +95,6 @@ There are two ways to set up the SSH CA key and SSH user certificates. The first
   eval "$(ssh-agent -s)"
   ```
 
-- To create an SSH user certificate from an existing ed25519 key, run the command:
-
-  ```bash
-  ssh-keygen -Us ~/.ssh/ca.pub -I "$(hostname -s)-$(date -u +"%Y%m%d%H%M%S")" -n debian,alpine -V -1d:+365d ~/.ssh/id_ed25519.pub
-  ```
-
-  ```console
-  Signed user key /home/debian/.ssh/id_ed25519-cert.pub: id "deb1-20250613173629" serial 0 for debian valid from 2025-06-12T17:36:29 to 2026-06-13T17:36:29
-  ```
-
-- (optional) To view the details of an SSH certificate, run:
-
-  ```console
-  $ ssh-keygen -L -f ~/.ssh/id_ed25519-cert.pub
-  ```
-
 ##### SSH CA setup using [Secretive](https://github.com/maxgoedjen/secretive) on macOS
 
 - Install Secretive using [Homebrew](https://brew.sh):
@@ -122,44 +104,6 @@ There are two ways to set up the SSH CA key and SSH user certificates. The first
   ```
 
 - Launch Secretive.app and create a new SSH key by clicking on the "+" button. Use the name "SSH CA" to identify the key as your SSH CA signing key.
-
-- Create a second SSH key. This key will be used to create an SSH user certificate for logging into the VMs.
-
-- Locate the SSH public key files:
-
-  ```bash
-  cd "$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/PublicKeys/"
-  ls -1
-  ```
-
-  You should see two files, one for the SSH CA key and another one for the SSH user key.
-
-  ```console
-  65dc48185c6cb16015237da874f9a1cf.pub
-  e76a9c3256555dc1ff91584f49f0021f.pub
-  ```
-
-- Sign the SSH user key to create the user certificate:
-
-  ```console
-  SSH_AUTH_SOCK=$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh \
-      ssh-keygen -Us 65dc48185c6cb16015237da874f9a1cf.pub \
-      -I "$(hostname -s)-$(date -u +"%Y%m%d%H%M%S")" -n debian,alpine -V -1d:+365d \
-      e76a9c3256555dc1ff91584f49f0021f.pub
-  ```
-
-- (optional) List details of keys and certificates held in the Secretive SSH agent:
-
-  ```bash
-  SSH_AUTH_SOCK=$HOME/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/socket.ssh \
-      ssh-add -l
-  ```
-
-  ```console
-  256 SHA256:eW/djamoJCIh4mMcEhpqBmdggYN5bb3Hw4Bbvb4T+fg ecdsa-sha2-nistp256 (ECDSA)
-  256 SHA256:3q2c1f/kaUk6xCoixk/jRKSt+TydOE13wu8jnwT6xmA ecdsa-sha2-nistp256 (ECDSA)
-  256 SHA256:3q2c1f/kaUk6xCoixk/jRKSt+TydOE13wu8jnwT6xmA e76a9c3256555dc1ff91584f49f0021f.pub (ECDSA-CERT)
-  ```
 
 ### Clone this Git repository
 
@@ -177,6 +121,7 @@ cd kubernetes-the-hard-way
 `kthw.sh` uses these environment variables. The variables are defined in the file [config.sh](./config.sh) and sourced by `kthw.sh`.
 
 - `KTHW_PI_HOST` hostname or IPv4 address of the Raspberry Pi system
+- `KTHW_SSH_KEY` path to the SSH public key to copy into the VMs at `~/.ssh/authorized_keys` (e.g. `~/.ssh/id_ed25519.pub`). This can be the same key that you use to log into the Raspberry Pi.
 - `KTHW_SSH_CA_KEY` path to the SSH CA public key file (e.g. `~/.ssh/ca.pub` or `~/Library/Containers/com.maxgoedjen.Secretive.SecretAgent/Data/PublicKeys/65dc48185c6cb16015237da874f9a1cf.pub`)
 - `KTHW_DEBIAN_IMAGE` URL of `genericcloud-arm64` [Debian Cloud image](https://cloud.debian.org/images/cloud/)
 - `KTHW_POD_CIDRn` pod CIDRs
